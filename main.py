@@ -7,18 +7,21 @@ from elasticsearch import Elasticsearch, helpers
 from datetime import datetime
 import threading
 import queue
+import argparse
 
+logger = logging.getLogger(__name__)
 aliases = {}
 
 class Elastic:
-    def __init__(self, queue, *args, **kwargs):
+    def __init__(self, queue, index, *args, **kwargs):
         self.queue = queue
+        self.index = index
         self._continue = True
         self.es = Elasticsearch(*args, **kwargs)
     
     def bulk_generator(self):
         while self._continue:
-            msg = {"_index": "mdt"}
+            msg = {"_index": self.index}
             try:
                 msg["_source"] = self.queue.get(timeout=15)
                 yield msg
@@ -27,10 +30,11 @@ class Elastic:
             
     def run(self):
         while self._continue:
+            logger.debug("Starting elasticsearch bulk insert")
             try:
                 helpers.bulk(self.es, self.bulk_generator())
             except Exception as ex:
-                print(ex)
+                logger.critical(str(ex))
     
     def stop(self):
         self._continue = False
@@ -98,7 +102,7 @@ def handle_telemetry(request):
             "telemetry_source": telemetry_pb.node_id_str,
             "telemetry_subscription": telemetry_pb.subscription_id_str ,
             "telemetry_path": telemetry_pb.encoding_path,
-            "timestamp": datetime.fromtimestamp(timestamp/1000).isoformat(),
+            "@timestamp": datetime.fromtimestamp(timestamp/1000).isoformat(),
             "tags": {}
         }
         for subfield in mdt_keys.fields:
@@ -108,27 +112,46 @@ def handle_telemetry(request):
             parse_content_field(subfield, telemetry_pb.encoding_path, msg, timestamp)
         
         es_queue.put(msg)
-            
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Listen for GRPC connection and send messages to an Elasticsearch backend')
+    parser.add_argument("--bind", "-b", default="0.0.0.0:8080", help="GRPC server binding")
+    parser.add_argument("--elastic-host", "-e", action="append", help="Elasticsearch server")
+    parser.add_argument("--elastic-index", "-i", default="mdt", help="Elasticsearch index")
+    parser.add_argument("--max-workers", "-w", default=10, type=int, help="GRPC max workers")
+
+    args = parser.parse_args()
+
+    return args
 
 if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    args = parse_args()
     es_queue = queue.Queue()
-    es = Elastic(es_queue, hosts=["10.10.20.200"])
+    es = Elastic(es_queue, args.elastic_index, hosts=args.elastic_host)
     es_thread = threading.Thread(target=es.run, daemon=True)
     es_thread.start()
 
     mdt_grpc_server = MDTgRPCServer()
     mdt_grpc_server.add_mdt_callback(handle_telemetry)
-    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
     proto.mdt_dialout_pb2_grpc.add_gRPCMdtDialoutServicer_to_server(
         mdt_grpc_server, grpc_server
     )
-    grpc_server.add_insecure_port("0.0.0.0:4242")
+    grpc_server.add_insecure_port(args.bind)
     grpc_server.start()
     try:
+        logger.info("Starting grpc server")
         grpc_server.wait_for_termination()
     except KeyboardInterrupt:
-        logging.warning("Stopping on interrupt.")
+        logger.warning("Stopping on interrupt.")
         grpc_server.stop(None)
-    except Exception:
-        logging.exception("Stopping due to exception!")
+    except Exception as ex:
+        logger.exception("Stopping due to exception!" + str(ex))
 
