@@ -3,14 +3,9 @@ import logging
 import threading
 import queue
 
-
 from logger import logger, setup_logger
 from mdt import MDTReader, get_mdt_server
 from helpers import Elastic, parse_args
-
-
-def test(*args, **kwargs):
-    print("-------------------")
 
 
 if __name__ == "__main__":
