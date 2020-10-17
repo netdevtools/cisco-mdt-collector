@@ -1,5 +1,3 @@
-import logging
-
 import threading
 import queue
 
@@ -29,4 +27,3 @@ if __name__ == "__main__":
         grpc_server.stop(None)
     except Exception as ex:
         logger.exception("Stopping due to exception!" + str(ex))
-
