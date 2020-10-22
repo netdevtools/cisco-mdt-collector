@@ -12,6 +12,9 @@ cisco-mdt = "^0.0.1"
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 
+[tool.poetry.scripts]
+cisco-mdt-collector = "cisco_mdt_collector.main:main"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

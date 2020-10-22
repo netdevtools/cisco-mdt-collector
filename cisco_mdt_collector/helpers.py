@@ -1,8 +1,9 @@
 import elasticsearch
+import elasticsearch.helpers
 import datetime
 import argparse
 
-from logger import logger
+from .logger import logger
 
 
 def parse_args():
