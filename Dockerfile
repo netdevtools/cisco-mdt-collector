@@ -1,11 +1,10 @@
 FROM python:3.9
 
-ENV HTTPS_PROXY=$var_name
-#RUN mkdir -p /usr/local/share/cisco-mdt-collector/
-COPY requirements.txt /usr/local/share/cisco-mdt-collector/
-RUN HTTPS_PROXY=http://10.10.20.50:3128 pip install -r /usr/local/share/cisco-mdt-collector/requirements.txt
+RUN pip install poetry
+COPY cisco_mdt_collector /usr/local/share/cisco-mdt-collector/cisco_mdt_collector
+COPY pyproject.toml /usr/local/share/cisco-mdt-collector/
+WORKDIR /usr/local/share/cisco-mdt-collector
 
-COPY cisco-mdt-collector /usr/local/share/cisco-mdt-collector
-
-ENTRYPOINT ["python", "/usr/local/share/cisco-mdt-collector/main.py"]
+RUN poetry config virtualenvs.create false && poetry install
+ENTRYPOINT ["cisco-mdt-collector"]
 CMD ["--help"]

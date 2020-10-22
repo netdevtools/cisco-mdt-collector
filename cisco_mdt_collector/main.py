@@ -1,14 +1,12 @@
-import logging
-
 import threading
 import queue
 
-from logger import logger, setup_logger
-from mdt import MDTReader, get_mdt_server
-from helpers import Elastic, parse_args
+from .logger import logger, setup_logger
+from .mdt import MDTReader, get_mdt_server
+from .helpers import Elastic, parse_args
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     setup_logger(logger)
 
@@ -30,3 +28,5 @@ if __name__ == "__main__":
     except Exception as ex:
         logger.exception("Stopping due to exception!" + str(ex))
 
+if __name__ == "__main__":
+    main()
