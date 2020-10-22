@@ -66,7 +66,8 @@ class MDTReader:
         for subfield in field.fields:
             self._parse_content_field(subfield, name, msg, timestamp)
     
-    def read_message(self, request_time, gpbkv):
+    def read_message(self, telemetry_pb, gpbkv):
+        request_time = telemetry_pb.msg_timestamp
         timestamp = gpbkv.timestamp or request_time
         try:
             mdt_keys = [f for f in gpbkv.fields if f.name == "keys"][0]
@@ -105,7 +106,7 @@ class MDTReader:
 
         try:
             for gpbkv in telemetry_pb.data_gpbkv:
-                self.read_message(telemetry_pb.timestamp, gpbkv)
+                self.read_message(telemetry_pb, gpbkv)
         except Exception as e:
             self.logger.error(f"MDT failed to read messages: {e}")
             
